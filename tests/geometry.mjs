@@ -3,12 +3,12 @@ import ts from 'typescript';
 import assert from 'node:assert/strict';
 const source=await fs.readFile(new URL('../app/space.ts',import.meta.url),'utf8');
 const header=`
-const __ctx=new Proxy({}, {get:()=>()=>{}});
+const __ctx=new Proxy({}, {get:(_,key)=>key==='createImageData'?((w,h)=>({data:new Uint8ClampedArray(w*h*4)})):(()=>{})});
 globalThis.window={devicePixelRatio:1};
 globalThis.document={createElement:()=>({width:0,height:0,getContext:()=>__ctx})};
 class TestRenderer{domElement={setAttribute(){}};shadowMap={};capabilities={getMaxAnisotropy:()=>8};setPixelRatio(){}}
 `;
-let code=ts.transpileModule(source.replace('new THREE.WebGLRenderer(','new TestRenderer(').replace('addDetails(decor);','addDetails(decor); return {obstacles,root};'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText;
+let code=ts.transpileModule(source.replace(/\/\/ GPU_ENV_BEGIN[\s\S]*?\/\/ GPU_ENV_END/,'').replace('new THREE.WebGLRenderer(','new TestRenderer(').replace('addDetails(decor);','addDetails(decor); return {obstacles,root};'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText;
 const target=new URL('../.geometry-check.mjs',import.meta.url);
 try{
  await fs.writeFile(target,header+code);
@@ -21,7 +21,17 @@ try{
  const [si,sj]=nearest(spots.living),queue=[[si,sj]],seen=new Set([si+','+sj]);
  for(let n=0;n<queue.length;n++){const [i,j]=queue[n];for(const [di,dj]of [[1,0],[-1,0],[0,1],[0,-1]]){const a=i+di,b=j+dj,k=a+','+b;if(a<0||a>=nx||b<0||b>=nz||seen.has(k))continue;const p=point(a,b);if(collides(p.x,p.z,obstacles))continue;seen.add(k);queue.push([a,b])}}
  for(const [name,p]of Object.entries(spots)){const [i,j]=nearest(p);assert(seen.has(i+','+j),'No walking route from living to '+name)}
- assert(collides(-3.5,0,obstacles));assert(collides(0,8,obstacles));assert(collides(.85,3,obstacles),'Interior wall must block');assert(collides(-.02,3.35,obstacles),'Sofa must block');
- console.log(JSON.stringify({roomsReachable:Object.keys(spots).length,obstacles:obstacles.length,walkableCells:seen.size,meshes:root.children.length,checks:'spawn, all-room reachability, walls, furniture, exterior boundary passed'}));
+ assert(collides(-3.5,0,obstacles));assert(collides(0,8,obstacles));assert(collides(.85,3,obstacles),'Interior wall must block');assert(collides(-.6,4,obstacles),'Sofa must block');
+ 
+ const sofa=root.getObjectByName('sofa-footprint'),coffee=root.getObjectByName('coffee-footprint'),dining=root.getObjectByName('dining-footprint'),chair=root.getObjectByName('dining-front-left');
+ const sofaFront=sofa.position.x-sofa.geometry.parameters.width/2;
+ const coffeeEdge=coffee.position.x+coffee.geometry.parameters.width/2;
+ const sofaNorth=sofa.position.z-sofa.geometry.parameters.depth/2;
+ const chairSouth=chair.position.z+chair.geometry.parameters.depth/2;
+ assert(sofaFront-coffeeEdge>=.65,'Coffee table clearance should be at least 65 cm');
+ assert(sofaNorth-chairSouth>=.85,'Keep a distinct gap between dining and sofa');
+ assert(.79-(sofa.position.x+sofa.geometry.parameters.width/2)>=.95,'Keep the wide aisle behind the sofa');
+ assert(dining.geometry.parameters.width>dining.geometry.parameters.depth,'Dining table should run across the room');
+ console.log(JSON.stringify({clearances:{coffeeToSofa:sofaFront-coffeeEdge,diningToSofa:sofaNorth-chairSouth,sofaBackAisle:.79-(sofa.position.x+sofa.geometry.parameters.width/2)},roomsReachable:Object.keys(spots).length,obstacles:obstacles.length,walkableCells:seen.size,meshes:root.children.length,checks:'spawn, all-room reachability, walls, furniture, exterior boundary passed'}));
 }finally{await fs.unlink(target).catch(()=>{})}
 
