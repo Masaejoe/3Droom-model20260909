@@ -28,3 +28,10 @@ Windows ARM64でもローカルで実行できるよう、Cloudflareローカル
 - 外周・室内壁・家具の衝突判定。
 - WebMCPは対応ブラウザでのみ登録します。対応した実ブラウザの検証コンテキストがなく、WebMCPの実機動作とブラウザでの視覚・入力操作は未検証です。
 
+
+## GitHub Pages
+公開用ファイルは `docs/` に保存しています。GitHub の Settings → Pages で、`Deploy from a branch`、`main`、`/docs` を選びます。
+
+内容を更新したら `pnpm build:pages` を実行し、更新された `docs/` もコミットしてpushしてください。通常の `pnpm build` は従来のルートURL用、`pnpm build:pages` は `/3Droom-model20260909/` 用です。
+
+PrivateリポジトリからのPages公開には対応するGitHubプランが必要です。公開されたアプリの閲覧範囲と、ソースのリポジトリの閲覧範囲は別です。
